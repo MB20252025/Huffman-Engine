@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Huffman Coding Engine</title>
+<style>
+  :root{
+    --bg:#eef2f7;
+    --card:#ffffff;
+    --ink:#0f172a;
+    --muted:#475569;
+    --border:#dbe2ea;
+    --accent:#1d4ed8;
+  }
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0;
+    padding:14px 12px 44px;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    font-size:16px;
+    line-height:1.5;
+  }
+  .app{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:14px;}
+  header h1{margin:0 0 4px;font-size:1.4rem;letter-spacing:-.01em;}
+  header p{margin:0;color:var(--muted);font-size:.9rem;}
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:14px;
+    box-shadow:0 1px 2px rgba(15,23,42,.05);
+  }
+  .card h2{margin:0 0 10px;font-size:1.05rem;}
+  .card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+  .card-head h2{margin:0;}
+
+  .field-label{display:block;font-weight:700;font-size:.9rem;margin-bottom:6px;}
+  textarea{
+    width:100%;
+    font:inherit;
+    font-size:1rem;
+    padding:10px 12px;
+    border-radius:12px;
+    border:1.5px solid #cbd5e1;
+    background:#fff;
+    color:var(--ink);
+    resize:vertical;
+    min-height:78px;
+  }
+  textarea:focus{outline:3px solid #bfdbfe;border-color:var(--accent);}
+
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+
+  .btn{
+    font:inherit;
+    font-size:.92rem;
+    font-weight:600;
+    border-radius:10px;
+    border:1.5px solid #94a3b8;
+    background:#f8fafc;
+    color:var(--ink);
+    padding:9px 14px;
+    cursor:pointer;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .btn.small{padding:6px 11px;font-size:.82rem;}
+  .btn.icon{width:40px;height:40px;padding:0;font-size:1.2rem;display:inline-flex;align-items:center;justify-content:center;}
+
+  .hint{margin:10px 0 0;font-size:.82rem;color:var(--muted);}
+  .note{margin:12px 0 0;font-size:.8rem;color:var(--muted);line-height:1.45;}
+
+  .zoom{display:flex;align-items:center;gap:8px;}
+  .zoom-level{font-size:.85rem;font-weight:700;min-width:48px;text-align:center;color:var(--muted);}
+
+  .legend{display:flex;flex-wrap:wrap;gap:8px 16px;margin-bottom:10px;font-size:.8rem;color:var(--muted);}
+  .legend-item{display:inline-flex;align-items:center;gap:6px;}
+  .swatch{width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;}
+  .sw-int{background:#dbeafe;border:3px solid #1d4ed8;}
+  .sw-leaf{background:#dcfce7;border:3px solid #15803d;}
+  .sw-hl{background:#fef08a;border:3px solid #ea580c;}
+  .sw-badge{width:22px;height:20px;border-radius:6px;background:#fff;border:1.5px solid #94a3b8;color:#1e3a8a;}
+
+  .tree-scroll{
+    overflow:auto;
+    max-height:72vh;
+    background:#f8fafc;
+    border:1.5px solid var(--border);
+    border-radius:12px;
+    padding:6px;
+    -webkit-overflow-scrolling:touch;
+  }
+  #tree{display:block;}
+
+  /* ---------- SVG tree styling ---------- */
+  .node{cursor:pointer;}
+  .node-circle{stroke-width:3;transition:fill .15s ease,stroke .15s ease,stroke-width .15s ease;}
+  .node.internal .node-circle{fill:#dbeafe;stroke:#1d4ed8;}
+  .node.leaf .node-circle{fill:#dcfce7;stroke:#15803d;}
+  .node.active .node-circle{fill:#fef08a;stroke:#ea580c;stroke-width:4.5;}
+  .node-freq{font-weight:800;fill:#0f172a;transition:fill .15s ease;}
+  .node.active .node-freq{fill:#7c2d12;}
+  .leaf-name{font-size:13px;font-weight:700;fill:#0f172a;}
+  .leaf-hex{font-size:11px;fill:#64748b;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+
+  .edge{stroke:#334155;stroke-width:2.5;stroke-linecap:round;pointer-events:none;transition:stroke .15s ease,stroke-width .15s ease;}
+  .edge.active{stroke:#ea580c;stroke-width:4.5;}
+
+  .badge{pointer-events:none;}
+  .badge-bg{fill:#ffffff;stroke:#94a3b8;stroke-width:1.5;transition:fill .15s ease,stroke .15s ease;}
+  .badge-text{font-size:14px;font-weight:800;fill:#1e3a8a;transition:fill .15s ease;}
+  .badge.active .badge-bg{fill:#ffedd5;stroke:#ea580c;}
+  .badge.active .badge-text{fill:#9a3412;}
+
+  .empty-msg{font-size:14px;fill:#64748b;font-weight:600;}
+
+  /* ---------- info panel ---------- */
+  .node-info{
+    margin-top:10px;
+    padding:10px 12px;
+    border-radius:12px;
+    background:#f1f5f9;
+    border:1px solid var(--border);
+    font-size:.86rem;
+    color:var(--muted);
+    line-height:1.6;
+  }
+  .info-title{font-weight:800;color:var(--ink);font-size:.95rem;margin-bottom:4px;}
+  .info-row{display:flex;justify-content:space-between;gap:12px;padding:2px 0;}
+  .info-row span{color:var(--muted);}
+  .info-row b{color:var(--ink);text-align:right;word-break:break-word;}
+
+  /* ---------- table ---------- */
+  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;}
+  table{width:100%;border-collapse:collapse;font-size:.9rem;}
+  th,td{padding:8px 10px;text-align:left;border-bottom:1px solid #eef2f7;}
+  th{background:#f1f5f9;font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:#475569;font-weight:700;}
+  tbody tr{cursor:pointer;-webkit-tap-highlight-color:transparent;}
+  tbody tr:active{background:#fef9c3;}
+  tbody tr.sel{background:#fef08a;}
+  tbody tr:last-child td{border-bottom:none;}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.04em;font-weight:700;color:#1e3a8a;}
+
+  /* ---------- output ---------- */
+  .bits,.decoded{
+    margin:0 0 10px;
+    padding:10px;
+    background:#f8fafc;
+    border:1px solid var(--border);
+    border-radius:10px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:.85rem;
+    line-height:1.55;
+    white-space:pre-wrap;
+    word-break:break-all;
+    max-height:180px;
+    overflow:auto;
+    color:#0f172a;
+  }
+  .verify{font-weight:700;margin:0 0 10px;font-size:.9rem;}
+  .verify.ok{color:#15803d;}
+  .verify.bad{color:#b91c1c;}
+
+  /* ---------- stats ---------- */
+  .stats{display:grid;grid-template-columns:1fr auto;gap:9px 14px;font-size:.9rem;}
+  .stats .k{color:var(--muted);}
+  .stats .v{font-weight:700;text-align:right;}
+  .stats .note{grid-column:1 / -1;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <h1>Huffman Coding Engine</h1>
+    <p>Build a Huffman tree, encode text to bits, decode it back and verify the round trip.</p>
+  </header>
+
+  <section class="card">
+    <label class="field-label" for="inputText">Text to encode</label>
+    <textarea id="inputText" rows="3" spellcheck="false" autocapitalize="off" autocorrect="off">hello world</textarea>
+    <div class="row">
+      <button id="buildBtn" class="btn primary" type="button">Build tree</button>
+      <button id="clearBtn" class="btn" type="button">Clear highlight</button>
+    </div>
+    <p class="hint">Your text is converted to UTF-8 <strong>bytes</strong> before encoding, so emojis and accented letters use several leaves (one per byte) rather than one leaf per character.</p>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Huffman tree</h2>
+      <div class="zoom">
+        <button id="zoomOut" class="btn icon" type="button" aria-label="Zoom out">−</button>
+        <span id="zoomLevel" class="zoom-level">100%</span>
+        <button id="zoomIn" class="btn icon" type="button" aria-label="Zoom in">+</button>
+        <button id="zoomReset" class="btn small" type="button">Reset</button>
+      </div>
+    </div>
+
+    <div class="legend">
+      <span class="legend-item"><span class="swatch sw-int"></span>Internal node</span>
+      <span class="legend-item"><span class="swatch sw-leaf"></span>Leaf (byte)</span>
+      <span class="legend-item"><span class="swatch sw-hl"></span>Highlighted</span>
+      <span class="legend-item"><span class="swatch sw-badge">0</span>Branch bit</span>
+    </div>
+
+    <div class="tree-scroll" id="treeScroll">
+      <svg id="tree" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Huffman tree diagram"></svg>
+    </div>
+
+    <div id="nodeInfo" class="node-info">Tap any node for details, or tap a row in the code table to trace its full path from the root.</div>
+  </section>
+
+  <section class="card">
+    <h2>Frequency &amp; code table</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Byte</th><th>Freq</th><th>Code</th></tr></thead>
+        <tbody id="codeTableBody"></tbody>
+      </table>
+    </div>
+    <div class="row"><button id="copyTable" class="btn small" type="button">Copy table</button></div>
+    <p class="hint">Tap a row to highlight that byte's route through the tree.</p>
+  </section>
+
+  <section class="card">
+    <h2>Encoded output</h2>
+    <pre id="bitsOut" class="bits">—</pre>
+    <p id="bitsNote" class="hint"></p>
+    <div class="row"><button id="copyBits" class="btn small" type="button">Copy bit stream</button></div>
+  </section>
+
+  <section class="card">
+    <h2>Decoded &amp; verified</h2>
+    <p id="verifyMsg" class="verify"></p>
+    <pre id="decodedOut" class="decoded">—</pre>
+  </section>
+
+  <section class="card">
+    <h2>Statistics</h2>
+    <div id="stats" class="stats"></div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ============================================================
+   Helpers
+   ============================================================ */
+var SVG_NS = 'http://www.w3.org/2000/svg';
+
+function $(id){ return document.getElementById(id); }
+
+function el(name, attrs){
+  var e = document.createElementNS(SVG_NS, name);
+  if(attrs){
+    for(var k in attrs){
+      if(Object.prototype.hasOwnProperty.call(attrs, k)) e.setAttribute(k, attrs[k]);
+    }
+  }
+  return e;
+}
+
+function clearEl(node){ while(node.firstChild) node.removeChild(node.firstChild); }
+
+function esc(s){
+  return String(s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+/* ============================================================
+   DOM references
+   ============================================================ */
+var textarea     = $('inputText');
+var buildBtn     = $('buildBtn');
+var clearBtn     = $('clearBtn');
+var svg          = $('tree');
+var treeScroll   = $('treeScroll');
+var infoEl       = $('nodeInfo');
+var tableBody    = $('codeTableBody');
+var bitsOut      = $('bitsOut');
+var bitsNote     = $('bitsNote');
+var verifyMsg    = $('verifyMsg');
+var decodedOut   = $('decodedOut');
+var statsEl      = $('stats');
+var zoomLevelEl  = $('zoomLevel');
+var zoomInBtn    = $('zoomIn');
+var zoomOutBtn   = $('zoomOut');
+var zoomResetBtn = $('zoomReset');
+var copyBitsBtn  = $('copyBits');
+var copyTableBtn = $('copyTable');
+
+/* ============================================================
+   State
+   ============================================================ */
+var root = null;
+var nodeById = new Map();
+var leafByByte = new Map();
+var nodeEls = new Map();
+var edgeEls = new Map();
+var rowEls = new Map();
+var codes = new Map();
+var freqMap = new Map();
+var bits = '';
+var currentBytes = [];
+
+var scale = 1;
+var svgW = 340, svgH = 200;
+
+var selectedNodeId = null;
+var hoverNodeId = null;
+var pathLeafId = null;
+var selectedByte = null;
+
+/* Layout constants */
+var H_GAP = 90;
+var V_GAP = 108;
+var PAD_TOP = 56;
+var PAD_BOTTOM = 104;
+var MIN_WIDTH = 340;
+
+var DISPLAY_LIMIT = 4000;
+
+/* ============================================================
+   Byte naming
+   ============================================================ */
+function byteName(b){
+  if(b === 32) return 'Space';
+  if(b === 10) return 'Newline';
+  if(b === 9)  return 'Tab';
+  if(b === 13) return 'Return';
+  if(b === 0)  return 'NUL';
+  if(b >= 33 && b <= 126) return String.fromCharCode(b);
+  return 'Byte ' + b;
+}
+
+function byteHex(b){
+  return '0x' + ('0' + b.toString(16).toUpperCase()).slice(-2);
+}
+
+/* ============================================================
+   Huffman tree construction
+   ============================================================ */
+function buildHuffmanTree(bytes){
+  var freq = new Map();
+  for(var i = 0; i < bytes.length; i++){
+    var b = bytes[i];
+    freq.set(b, (freq.get(b) || 0) + 1);
+  }
+  if(freq.size === 0) return null;
+
+  var idc = 0, order = 0;
+  var leaves = [];
+  var keys = [];
+  freq.forEach(function(v, k){ keys.push(k); });
+  keys.sort(function(a, b){ return a - b; });
+
+  for(var j = 0; j < keys.length; j++){
+    var byte = keys[j];
+    leaves.push({
+      id: 'n' + (idc++),
+      byte: byte,
+      freq: freq.get(byte),
+      left: null, right: null, parent: null,
+      order: order++
+    });
+  }
+
+  if(leaves.length === 1) return leaves[0];
+
+  var pq = leaves.slice();
+  while(pq.length > 1){
+    pq.sort(function(a, b){
+      return (a.freq - b.freq) || (a.order - b.order);
+    });
+    var a = pq.shift();
+    var b = pq.shift();
+    var parent = {
+      id: 'n' + (idc++),
+      byte: null,
+      freq: a.freq + b.freq,
+      left: a, right: b, parent: null,
+      order: order++
+    };
+    a.parent = parent;
+    b.parent = parent;
+    pq.push(parent);
+  }
+  return pq[0];
+}
+
+/* ============================================================
+   Codes
+   ============================================================ */
+function computeCodes(r){
+  var map = new Map();
+  if(!r) return map;
+  if(!r.left && !r.right){
+    // Documented convention for a single unique byte
+    map.set(r.byte, '0');
+    return map;
+  }
+  (function walk(n, prefix){
+    if(!n.left && !n.right){
+      map.set(n.byte, prefix);
+      return;
+    }
+    if(n.left)  walk(n.left,  prefix + '0');
+    if(n.right) walk(n.right, prefix + '1');
+  })(r, '');
+  return map;
+}
+
+/* ============================================================
+   Encoding / decoding
+   ============================================================ */
+function encodeBytes(bytes, codeMap){
+  var parts = [];
+  for(var i = 0; i < bytes.length; i++){
+    parts.push(codeMap.get(bytes[i]));
+  }
+  return parts.join('');
+}
+
+function decodeBits(bitString, r){
+  var out = [];
+  if(!r) return out;
+
+  if(!r.left && !r.right){
+    // single-symbol tree: every '0' is one occurrence
+    for(var i = 0; i < bitString.length; i++){
+      if(bitString.charAt(i) !== '0') throw new Error('Invalid bit for single-symbol tree');
+      out.push(r.byte);
+    }
+    return out;
+  }
+
+  var node = r;
+  for(var j = 0; j < bitString.length; j++){
+    var bit = bitString.charAt(j);
+    node = (bit === '0') ? node.left : node.right;
+    if(!node) throw new Error('Invalid bit sequence');
+    if(!node.left && !node.right){
+      out.push(node.byte);
+      node = r;
+    }
+  }
+  return out;
+}
+
+/* ============================================================
+   Layout
+   ============================================================ */
+function radiusFor(freq){
+  var d = String(freq).length;
+  return 21 + Math.min(12, Math.max(0, d - 2) * 4);
+}
+
+function freqFontSize(freq){
+  var d = String(freq).length;
+  if(d <= 2) return 16;
+  if(d === 3) return 15;
+  if(d === 4) return 14;
+  return 12;
+}
+
+function layoutTree(r){
+  var maxDepth = 0;
+  var all = [];
+
+  (function walk(n, d){
+    n.depth = d;
+    n.r = radiusFor(n.freq);
+    if(d > maxDepth) maxDepth = d;
+    all.push(n);
+    if(n.left)  walk(n.left,  d + 1);
+    if(n.right) walk(n.right, d + 1);
+  })(r, 0);
+
+  var leafIdx = 0;
+  (function assignX(n){
+    if(!n.left && !n.right){
+      n.rx = leafIdx * H_GAP;
+      leafIdx++;
+      return n.rx;
+    }
+    var l = assignX(n.left);
+    var rr = assignX(n.right);
+    n.rx = (l + rr) / 2;
+    return n.rx;
+  })(r);
+
+  var leafCount = leafIdx;
+  var treeWidth = (leafCount - 1) * H_GAP;
+  var width = Math.max(MIN_WIDTH, treeWidth + 180);
+  var offsetX = (width - treeWidth) / 2;
+  var height = PAD_TOP + maxDepth * V_GAP + PAD_BOTTOM;
+
+  for(var i = 0; i < all.length; i++){
+    var n = all[i];
+    n.x = n.rx + offsetX;
+    n.y = PAD_TOP + n.depth * V_GAP;
+  }
+
+  return { width: width, height: height };
+}
+
+/* ============================================================
+   Rendering
+   ============================================================ */
+function applyZoom(){
+  svg.setAttribute('width', Math.round(svgW * scale));
+  svg.setAttribute('height', Math.round(svgH * scale));
+  zoomLevelEl.textContent = Math.round(scale * 100) + '%';
+}
+
+function drawEdge(g, p, c, bit){
+  var dx = c.x - p.x, dy = c.y - p.y;
+  var len = Math.sqrt(dx * dx + dy * dy) || 1;
+  var ux = dx / len, uy = dy / len;
+
+  var x1 = p.x + ux * p.r, y1 = p.y + uy * p.r;
+  var x2 = c.x - ux * c.r, y2 = c.y - uy * c.r;
+
+  var line = el('line', { x1: x1, y1: y1, x2: x2, y2: y2, 'class': 'edge' });
+  g.appendChild(line);
+
+  var mx = (x1 + x2) / 2;
+  var my = (y1 + y2) / 2;
+
+  var badgeG = el('g', { 'class': 'badge' });
+  var rect = el('rect', {
+    x: mx - 13, y: my - 11, width: 26, height: 22, rx: 7,
+    'class': 'badge-bg'
+  });
+  var txt = el('text', {
+    x: mx, y: my + 5, 'text-anchor': 'middle', 'class': 'badge-text'
+  });
+  txt.textContent = bit;
+  badgeG.appendChild(rect);
+  badgeG.appendChild(txt);
+  g.appendChild(badgeG);
+
+  edgeEls.set(p.id + '|' + c.id, {
+    line: line, badge: badgeG, rect: rect, text: txt, parent: p, child: c
+  });
+}
+
+function drawNode(g, n){
+  var isLeaf = (!n.left && !n.right);
+  var ng = el('g', {
+    'class': 'node ' + (isLeaf ? 'leaf' : 'internal'),
+    'data-node-id': n.id,
+    tabindex: '0',
+    role: 'button',
+    'aria-label': 'Node with frequency ' + n.freq
+  });
+
+  var circle = el('circle', { cx: n.x, cy: n.y, r: n.r, 'class': 'node-circle' });
+  ng.appendChild(circle);
+
+  var fs = freqFontSize(n.freq);
+  var label = el('text', {
+    x: n.x, y: n.y + fs * 0.36, 'text-anchor': 'middle', 'class': 'node-freq'
+  });
+  label.style.fontSize = fs + 'px';
+  label.textContent = n.freq;
+  ng.appendChild(label);
+
+  if(isLeaf){
+    var t1 = el('text', {
+      x: n.x, y: n.y + n.r + 19, 'text-anchor': 'middle', 'class': 'leaf-name'
+    });
+    t1.textContent = byteName(n.byte);
+    ng.appendChild(t1);
+
+    var t2 = el('text', {
+      x: n.x, y: n.y + n.r + 34, 'text-anchor': 'middle', 'class': 'leaf-hex'
+    });
+    t2.textContent = byteHex(n.byte);
+    ng.appendChild(t2);
+  }
+
+  g.appendChild(ng);
+  nodeEls.set(n.id, ng);
+}
+
+function renderTree(){
+  clearEl(svg);
+  nodeEls.clear();
+  edgeEls.clear();
+
+  if(!root) return;
+
+  var dims = layoutTree(root);
+  svgW = dims.width;
+  svgH = dims.height;
+
+  svg.setAttribute('viewBox', '0 0 ' + svgW + ' ' + svgH);
+  applyZoom();
+
+  var gEdges = el('g', {});
+  var gNodes = el('g', {});
+  svg.appendChild(gEdges);
+  svg.appendChild(gNodes);
+
+  (function walk(n){
+    if(n.left){
+      drawEdge(gEdges, n, n.left, '0');
+      walk(n.left);
+    }
+    if(n.right){
+      drawEdge(gEdges, n, n.right, '1');
+      walk(n.right);
+    }
+  })(root);
+
+  (function walk2(n){
+    drawNode(gNodes, n);
+    if(n.left) walk2(n.left);
+    if(n.right) walk2(n.right);
+  })(root);
+
+  updateHighlight();
+}
+
+/* ============================================================
+   Highlighting
+   ============================================================ */
+function resetHighlightState(){
+  selectedNodeId = null;
+  hoverNodeId = null;
+  pathLeafId = null;
+  selectedByte = null;
+}
+
+function updateHighlight(){
+  var activeNodes = new Set();
+  var activeEdges = new Set();
+
+  function addNodeAndConnected(id){
+    var n = nodeById.get(id);
+    if(!n) return;
+    activeNodes.add(id);
+    if(n.parent) activeEdges.add(n.parent.id + '|' + n.id);
+    if(n.left)   activeEdges.add(n.id + '|' + n.left.id);
+    if(n.right)  activeEdges.add(n.id + '|' + n.right.id);
+  }
+
+  function addPathToLeaf(id){
+    var n = nodeById.get(id);
+    if(!n) return;
+    var cur = n;
+    activeNodes.add(cur.id);
+    while(cur.parent){
+      activeEdges.add(cur.parent.id + '|' + cur.id);
+      activeNodes.add(cur.parent.id);
+      cur = cur.parent;
+    }
+  }
+
+  if(pathLeafId) addPathToLeaf(pathLeafId);
+  if(selectedNodeId) addNodeAndConnected(selectedNodeId);
+  if(hoverNodeId) addNodeAndConnected(hoverNodeId);
+
+  nodeEls.forEach(function(g, id){
+    g.classList.toggle('active', activeNodes.has(id));
+  });
+
+  edgeEls.forEach(function(e, key){
+    var on = activeEdges.has(key);
+    e.line.classList.toggle('active', on);
+    e.badge.classList.toggle('active', on);
+  });
+
+  rowEls.forEach(function(tr, byte){
+    tr.classList.toggle('sel', selectedByte !== null && byte === selectedByte);
+  });
+}
+
+/* ============================================================
+   Node info panel
+   ============================================================ */
+function showNodeInfo(n){
+  if(!n){
+    infoEl.textContent = 'Tap any node for details, or tap a row in the code table to trace its full path from the root.';
+    return;
+  }
+  var isLeaf = (!n.left && !n.right);
+  var html = '';
+
+  if(isLeaf){
+    html += '<div class="info-title">Leaf node</div>';
+    html += '<div class="info-row"><span>Frequency</span><b>' + n.freq + '</b></div>';
+    html += '<div class="info-row"><span>Byte value</span><b>' + esc(byteName(n.byte)) + ' (' + n.byte + ', ' + byteHex(n.byte) + ')</b></div>';
+    html += '<div class="info-row"><span>Huffman code</span><b class="mono">' + esc(codes.get(n.byte)) + '</b></div>';
+  } else {
+    html += '<div class="info-title">Internal node</div>';
+    html += '<div class="info-row"><span>Frequency</span><b>' + n.freq + '</b></div>';
+    html += '<div class="info-row"><span>Children</span><b>' + n.left.freq + ' + ' + n.right.freq + '</b></div>';
+    html += '<div class="info-row"><span>Depth</span><b>' + n.depth + '</b></div>';
+  }
+  infoEl.innerHTML = html;
+}
+
+/* ============================================================
+   Scroll a node into view inside the tree container
+   ============================================================ */
+function scrollToNode(n){
+  if(!n) return;
+  var target = Math.max(0, n.x * scale - treeScroll.clientWidth / 2);
+  if(treeScroll.scrollTo){
+    try{ treeScroll.scrollTo({ left: target, behavior: 'smooth' }); return; }catch(e){}
+  }
+  treeScroll.scrollLeft = target;
+}
+
+/* ============================================================
+   Selection handlers
+   ============================================================ */
+function selectNode(id){
+  if(selectedNodeId === id){
+    selectedNodeId = null;
+    pathLeafId = null;
+    selectedByte = null;
+    showNodeInfo(null);
+    updateHighlight();
+    return;
+  }
+  selectedNodeId = id;
+  pathLeafId = null;
+  selectedByte = null;
+  var n = nodeById.get(id);
+  showNodeInfo(n);
+  updateHighlight();
+}
+
+function selectByteRow(byte){
+  var leaf = leafByByte.get(byte);
+  if(!leaf) return;
+  pathLeafId = leaf.id;
+  selectedNodeId = null;
+  selectedByte = byte;
+  showNodeInfo(leaf);
+  updateHighlight();
+  scrollToNode(leaf);
+}
+
+function clearHighlight(){
+  resetHighlightState();
+  showNodeInfo(null);
+  updateHighlight();
+}
+
+/* ============================================================
+   Code table
+   ============================================================ */
+function renderTable(){
+  clearEl(tableBody);
+  rowEls.clear();
+  if(!root) return;
+
+  var entries = [];
+  codes.forEach(function(code, byte){
+    entries.push({ byte: byte, code: code, freq: freqMap.get(byte) });
+  });
+  entries.sort(function(a, b){
+    return (b.freq - a.freq) || (a.byte - b.byte);
+  });
+
+  entries.forEach(function(item){
+    var tr = document.createElement('tr');
+    tr.tabIndex = 0;
+
+    var td1 = document.createElement('td');
+    td1.textContent = byteName(item.byte);
+    td1.style.fontWeight = '700';
+
+    var td2 = document.createElement('td');
+    td2.textContent = item.freq;
+
+    var td3 = document.createElement('td');
+    td3.className = 'mono';
+    td3.textContent = item.code;
+
+    tr.appendChild(td1);
+    tr.appendChild(td2);
+    tr.appendChild(td3);
+
+    tr.addEventListener('click', function(){ selectByteRow(item.byte); });
+    tr.addEventListener('keydown', function(e){
+      if(e.key === 'Enter' || e.key === ' '){
+        e.preventDefault();
+        selectByteRow(item.byte);
+      }
+    });
+
+    tableBody.appendChild(tr);
+    rowEls.set(item.byte, tr);
+  });
+}
+
+/* ============================================================
+   Copy helper
+   ============================================================ */
+function copyText(text, btn){
+  function done(ok){
+    var old = btn.getAttribute('data-label') || btn.textContent;
+    btn.setAttribute('data-label', old);
+    btn.textContent = ok ? 'Copied!' : 'Copy failed';
+    setTimeout(function(){ btn.textContent = old; }, 1500);
+  }
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(text).then(function(){ done(true); }, function(){ fallback(); });
+  } else {
+    fallback();
+  }
+  function fallback(){
+    try{
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      done(ok);
+    }catch(e){
+      done(false);
+    }
+  }
+}
+
+/* ============================================================
+   Statistics
+   ============================================================ */
+function renderStats(originalText){
+  var origBytes = currentBytes.length;
+  var bitCount = bits.length;
+  var payloadBytes = Math.ceil(bitCount / 8);
+  var tableBytes = codes.size * 2;
+  var totalBytes = payloadBytes + tableBytes;
+  var ratio = origBytes ? (payloadBytes / origBytes) : 0;
+  var saving = origBytes ? (1 - payloadBytes / origBytes) * 100 : 0;
+  var charCount = Array.from(originalText).length;
+
+  var rows = [
+    ['Original text (UTF-8)', origBytes + ' bytes'],
+    ['Characters (code points)', charCount + ''],
+    ['Distinct bytes (leaves)', codes.size + ''],
+    ['Encoded bit stream', bitCount + ' bits'],
+    ['Padded payload', payloadBytes + ' bytes'],
+    ['Code table (approx.)', '~' + tableBytes + ' bytes'],
+    ['Estimated total', '~' + totalBytes + ' bytes'],
+    ['Payload vs original', (ratio * 100).toFixed(1) + '% (' + saving.toFixed(1) + '% smaller)']
+  ];
+
+  var html = '';
+  rows.forEach(function(r){
+    html += '<div class="k">' + esc(r[0]) + '</div><div class="v">' + esc(r[1]) + '</div>';
+  });
+  html += '<p class="note">The bit stream on its own is <strong>not</strong> a complete file: a decoder also needs the code table (or the tree) to know what the bits mean. “Padded payload” counts only the bits rounded up to whole bytes; “Estimated total” adds a rough 2 bytes per distinct byte for storing that table.</p>';
+  statsEl.innerHTML = html;
+}
+
+/* ============================================================
+   Empty state
+   ============================================================ */
+function showEmptyState(){
+  clearEl(svg);
+  svgW = 340;
+  svgH = 150;
+  svg.setAttribute('viewBox', '0 0 ' + svgW + ' ' + svgH);
+  applyZoom();
+
+  var t = el('text', {
+    x: svgW / 2, y: svgH / 2, 'text-anchor': 'middle', 'class': 'empty-msg'
+  });
+  t.textContent = 'Type some text and tap "Build tree".';
+  svg.appendChild(t);
+
+  infoEl.textContent = 'No tree yet.';
+  clearEl(tableBody);
+  rowEls.clear();
+  bitsOut.textContent = '—';
+  bitsNote.textContent = '';
+  decodedOut.textContent = '—';
+  verifyMsg.textContent = '';
+  verifyMsg.className = 'verify';
+  statsEl.innerHTML = '<p class="note" style="grid-column:1/-1">No input, so there is nothing to encode.</p>';
+}
+
+/* ============================================================
+   Main pipeline
+   ============================================================ */
+function run(){
+  var text = textarea.value;
+
+  resetHighlightState();
+  nodeById.clear();
+  leafByByte.clear();
+  codes.clear();
+  freqMap.clear();
+  bits = '';
+  currentBytes = [];
+
+  if(text.length === 0){
+    root = null;
+    showEmptyState();
+    return;
+  }
+
+  var encoder = new TextEncoder();
+  currentBytes = Array.from(encoder.encode(text));
+
+  root = buildHuffmanTree(currentBytes);
+  if(!root){
+    showEmptyState();
+    return;
+  }
+
+  (function index(n){
+    nodeById.set(n.id, n);
+    if(!n.left && !n.right){
+      leafByByte.set(n.byte, n);
+      freqMap.set(n.byte, n.freq);
+    }
+    if(n.left) index(n.left);
+    if(n.right) index(n.right);
+  })(root);
+
+  codes = computeCodes(root);
+  bits = encodeBytes(currentBytes, codes);
+
+  /* ---- render tree ---- */
+  renderTree();
+
+  /* ---- table ---- */
+  renderTable();
+
+  /* ---- encoded output ---- */
+  if(bits.length > DISPLAY_LIMIT){
+    bitsOut.textContent = bits.slice(0, DISPLAY_LIMIT) + ' …';
+    bitsNote.textContent = 'Showing the first ' + DISPLAY_LIMIT + ' of ' + bits.length +
+      ' bits. The Copy button copies the full stream.';
+  } else {
+    bitsOut.textContent = bits;
+    bitsNote.textContent = bits.length + ' bits total. The Copy button copies the full stream.';
+  }
+
+  /* ---- decode + verify ---- */
+  var decodedBytes;
+  var ok = false;
+  var errMsg = '';
+  try{
+    decodedBytes = decodeBits(bits, root);
+    ok = (decodedBytes.length === currentBytes.length);
+    if(ok){
+      for(var i = 0; i < currentBytes.length; i++){
+        if(decodedBytes[i] !== currentBytes[i]){ ok = false; break; }
+      }
+    }
+  }catch(err){
+    ok = false;
+    errMsg = err.message;
+  }
+
+  if(ok){
+    verifyMsg.textContent = '✓ Verified — decoding the bit stream reproduces the original input byte-for-byte.';
+    verifyMsg.className = 'verify ok';
+  } else {
+    verifyMsg.textContent = '✗ Verification failed' + (errMsg ? ': ' + errMsg : '.');
+    verifyMsg.className = 'verify bad';
+  }
+
+  var decodedText = '';
+  if(decodedBytes && decodedBytes.length){
+    try{
+      decodedText = new TextDecoder().decode(new Uint8Array(decodedBytes));
+    }catch(e){
+      decodedText = '(could not decode as UTF-8)';
+    }
+  }
+  if(decodedText.length > 2000){
+    decodedOut.textContent = decodedText.slice(0, 2000) + ' …';
+  } else {
+    decodedOut.textContent = decodedText === '' ? '(empty)' : decodedText;
+  }
+
+  /* ---- stats ---- */
+  renderStats(text);
+
+  /* ---- info panel ---- */
+  showNodeInfo(null);
+}
+
+/* ============================================================
+   Events
+   ============================================================ */
+buildBtn.addEventListener('click', run);
+
+clearBtn.addEventListener('click', function(){
+  clearHighlight();
+});
+
+zoomInBtn.addEventListener('click', function(){
+  scale = Math.min(3, scale * 1.25);
+  applyZoom();
+});
+zoomOutBtn.addEventListener('click', function(){
+  scale = Math.max(0.4, scale / 1.25);
+  applyZoom();
+});
+zoomResetBtn.addEventListener('click', function(){
+  scale = 1;
+  applyZoom();
+});
+
+copyBitsBtn.addEventListener('click', function(){
+  if(!bits){ copyText('', copyBitsBtn); return; }
+  copyText(bits, copyBitsBtn);
+});
+
+copyTableBtn.addEventListener('click', function(){
+  var lines = ['Byte\tFreq\tCode'];
+  var entries = [];
+  codes.forEach(function(code, byte){
+    entries.push({ byte: byte, code: code, freq: freqMap.get(byte) });
+  });
+  entries.sort(function(a, b){ return (b.freq - a.freq) || (a.byte - b.byte); });
+  entries.forEach(function(e){
+    lines.push(byteName(e.byte) + '\t' + e.freq + '\t' + e.code);
+  });
+  copyText(lines.join('\n'), copyTableBtn);
+});
+
+/* --- SVG interactions --- */
+svg.addEventListener('click', function(e){
+  var nodeG = e.target.closest ? e.target.closest('[data-node-id]') : null;
+  if(nodeG){
+    selectNode(nodeG.getAttribute('data-node-id'));
+    return;
+  }
+  clearHighlight();
+});
+
+svg.addEventListener('mouseover', function(e){
+  var nodeG = e.target.closest ? e.target.closest('[data-node-id]') : null;
+  if(!nodeG) return;
+  var id = nodeG.getAttribute('data-node-id');
+  if(id === hoverNodeId) return;
+  hoverNodeId = id;
+  updateHighlight();
+});
+
+svg.addEventListener('mouseout', function(e){
+  var nodeG = e.target.closest ? e.target.closest('[data-node-id]') : null;
+  if(!nodeG) return;
+  if(hoverNodeId === nodeG.getAttribute('data-node-id')){
+    hoverNodeId = null;
+    updateHighlight();
+  }
+});
+
+svg.addEventListener('keydown', function(e){
+  if(e.key === 'Enter' || e.key === ' '){
+    var nodeG = e.target.closest ? e.target.closest('[data-node-id]') : null;
+    if(nodeG){
+      e.preventDefault();
+      selectNode(nodeG.getAttribute('data-node-id'));
+    }
+  }
+});
+
+/* clicking padding around the SVG clears the highlight too */
+treeScroll.addEventListener('click', function(e){
+  if(e.target === treeScroll) clearHighlight();
+});
+
+/* ============================================================
+   Boot
+   ============================================================ */
+run();
+
+})();
+</script>
+</body>
+  </html>
